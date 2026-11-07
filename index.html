@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>騎士の巡歴 ― ナイトツアー</title>
+<meta name="description" content="チェスのナイトの動きで、盤の全部のマスを1回ずつ訪れる古典パズル。5×5・6×6・8×8、ヒント・お手本・記録用紙の印刷つき。">
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+  :root {
+    --bg: #f6ecd9; --card: #fffdf6; --ink: #3d2c17; --sub: #8a7350;
+    --accent: #b8860b; --teal: #0f766e; --line: #e3d3ae;
+    --light: #f2e3ba; --dark: #9a7443;
+  }
+  body { margin: 0; font-family: "Hiragino Maru Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif; background: var(--bg); color: var(--ink); -webkit-tap-highlight-color: transparent; }
+  .wrap { max-width: 560px; margin: 0 auto; padding: 14px 12px 40px; }
+  h1 {
+    text-align: center; font-size: 30px; margin: 10px 0 2px; letter-spacing: .04em;
+    background: linear-gradient(180deg, #ffe98a 0%, #f5c542 35%, #b8860b 60%, #f9d976 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+    filter: drop-shadow(0 1px 0 rgba(90,60,0,.45));
+  }
+  .subtitle { text-align: center; color: var(--sub); font-size: 13px; margin-bottom: 12px; }
+  .card { background: var(--card); border: 1.5px solid var(--line); border-radius: 16px; padding: 14px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(90,60,0,.08); }
+  .hidden { display: none !important; }
+  /* タイトルのミニ盤アニメーション */
+  .mini-wrap { position: relative; width: 190px; height: 190px; margin: 2px auto 6px; }
+  .mini-board { position: absolute; inset: 0; display: grid; grid-template-columns: repeat(5, 1fr); grid-template-rows: repeat(5, 1fr); border: 3px solid #7c5a2d; border-radius: 8px; overflow: hidden; }
+  .mini-cell { display: flex; align-items: flex-start; justify-content: flex-start; font-size: 10px; font-weight: 700; color: rgba(90,55,0,.0); padding: 1px 2px; box-sizing: border-box; transition: background .3s, color .3s; }
+  .mini-cell.seen { color: rgba(90,55,0,.55); }
+  #miniKnight { position: absolute; width: 38px; height: 38px; margin: -19px 0 0 -19px; font-size: 30px; line-height: 38px; text-align: center; color: #6d4c12; text-shadow: 0 2px 3px rgba(0,0,0,.35); transition: left .34s ease, top .34s ease; z-index: 3; pointer-events: none; }
+  #miniKnight.hop { animation: hop .36s ease; }
+  @keyframes hop { 40% { transform: translateY(-13px) scale(1.12) rotate(-6deg); } }
+  /* 盤の選択カード */
+  .board-card { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--card); border: 1.5px solid var(--line); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; cursor: pointer; font-family: inherit; box-shadow: 0 2px 6px rgba(90,60,0,.08); }
+  .board-card:active { transform: scale(.985); }
+  .board-thumb { width: 54px; height: 54px; border-radius: 8px; border: 2px solid #7c5a2d; display: grid; flex: none; overflow: hidden; }
+  .board-thumb i { display: block; }
+  .board-name { font-size: 19px; font-weight: 800; }
+  .board-desc { font-size: 12.5px; color: var(--sub); margin-top: 2px; line-height: 1.5; }
+  .board-rec { margin-left: auto; flex: none; font-size: 12px; font-weight: 800; color: var(--accent); text-align: right; }
+  /* ゲーム画面 */
+  .top-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
+  .pill { border: 1.5px solid var(--line); background: var(--card); border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; color: var(--ink); }
+  .pill:active { transform: scale(.96); }
+  .status { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .badge { background: #fdf0cd; border: 1.5px solid #e8c85a; color: #7c5a00; border-radius: 999px; padding: 5px 12px; font-weight: 800; font-size: 14.5px; }
+  .status .dim { color: var(--sub); font-size: 13px; font-weight: 700; }
+  #boardWrap { position: relative; width: min(100%, 480px); aspect-ratio: 1; margin: 0 auto; border: 4px solid #7c5a2d; border-radius: 10px; overflow: hidden; box-shadow: 0 6px 18px rgba(90,60,0,.25); touch-action: manipulation; background: #7c5a2d; }
+  #board { position: absolute; inset: 0; display: grid; }
+  .cell { position: relative; box-sizing: border-box; cursor: pointer; user-select: none; -webkit-user-select: none; }
+  .cell.L { background: linear-gradient(145deg, #f6e9c4, #eedca9); }
+  .cell.D { background: linear-gradient(145deg, #a87f4c, #8a6538); }
+  .cell .num { position: absolute; top: 2px; left: 4px; font-weight: 800; line-height: 1; z-index: 2; }
+  .cell.D .num { color: #ffe9ad; } .cell.L .num { color: #8a5a17; }
+  .cell.visited { box-shadow: inset 0 0 0 100px rgba(255, 190, 40, .28); }
+  .cell .dot { position: absolute; left: 50%; top: 50%; width: 26%; height: 26%; margin: -13% 0 0 -13%; border-radius: 50%; background: rgba(20, 120, 60, .55); box-shadow: 0 0 0 3px rgba(255,255,255,.35); display: none; z-index: 2; }
+  .cell.legal .dot { display: block; }
+  .cell.current { box-shadow: inset 0 0 0 3.5px #d97706, inset 0 0 0 100px rgba(255,190,40,.35); }
+  .cell .knight { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #5d3f0e; text-shadow: 0 2px 3px rgba(0,0,0,.3); z-index: 3; }
+  .cell.hintcell { animation: hintpulse .7s ease-in-out infinite alternate; z-index: 4; }
+  @keyframes hintpulse { from { box-shadow: inset 0 0 0 3px #16a34a, inset 0 0 0 100px rgba(22,163,74,.12); } to { box-shadow: inset 0 0 0 5.5px #16a34a, inset 0 0 0 100px rgba(22,163,74,.38); } }
+  .cell.stranded .num::after { content: " ✕"; color: #dc2626; }
+  .cell.stranded { box-shadow: inset 0 0 0 100px rgba(120,120,120,.35); }
+  #pathSvg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+  .msg { text-align: center; font-size: 15px; font-weight: 700; min-height: 24px; margin-top: 10px; line-height: 1.55; }
+  .msg.warn { color: #b91c1c; }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 10px; }
+  .btn { border: none; border-radius: 999px; padding: 12px 18px; font-size: 15.5px; font-weight: 800; cursor: pointer; font-family: inherit; color: #fff; box-shadow: 0 3px 8px rgba(90,60,0,.25); }
+  .btn:active { transform: scale(.96); }
+  .btn:disabled { opacity: .45; box-shadow: none; }
+  .btn.primary { background: linear-gradient(180deg, #d97706, #b45309); }
+  .btn.teal { background: linear-gradient(180deg, #14b8a6, #0f766e); }
+  .btn.ghost { background: #fffdf6; color: var(--ink); border: 1.5px solid var(--line); box-shadow: none; }
+  .btn.green { background: linear-gradient(180deg, #22c55e, #15803d); }
+  .foot { text-align: center; color: var(--sub); font-size: 12px; line-height: 1.7; margin-top: 16px; }
+  /* モーダル */
+  .modal-bg { position: fixed; inset: 0; background: rgba(60,40,5,.45); display: none; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+  .modal-bg.open { display: flex; }
+  .modal { background: var(--card); border-radius: 20px; padding: 22px 20px; max-width: 480px; width: 100%; max-height: 86vh; overflow-y: auto; box-shadow: 0 12px 40px rgba(0,0,0,.3); }
+  .modal h2 { margin: 0 0 10px; font-size: 21px; text-align: center; }
+  .modal p, .modal li { font-size: 14.5px; line-height: 1.75; }
+  .modal ul { padding-left: 20px; margin: 6px 0; }
+  #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 60; display: none; }
+  .big-emoji { font-size: 44px; text-align: center; }
+  .stat-line { text-align: center; font-weight: 800; font-size: 16px; margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ===== ホーム ===== -->
+  <div id="scr-home">
+    <h1>♞ 騎士の巡歴</h1>
+    <div class="subtitle">― ナイトツアー ―</div>
+    <div class="mini-wrap" aria-hidden="true">
+      <div class="mini-board" id="miniBoard"></div>
+      <div id="miniKnight">♞</div>
+    </div>
+    <div class="card">
+      <p style="margin:0; font-size:14.5px; line-height:1.75;">
+        チェスの<b>ナイト（桂馬の動き）</b>で、盤の<b>全部のマスをちょうど1回ずつ</b>訪れる、300年以上愛されてきた古典パズルです。
+        まず盤をえらび、<b>スタートのマスをタップ</b>。あとは緑の丸が出たマスへ進んでください。
+      </p>
+    </div>
+    <div id="boardCards"></div>
+    <div class="card">
+      <div style="font-weight:800; margin-bottom:6px;">🖨 記録用紙の印刷</div>
+      <p style="margin:0 0 10px; font-size:13.5px; line-height:1.7; color:var(--sub);">
+        空の盤面に、訪れた順番の番号を書き込める用紙です。紙の上で考える授業や、挑戦の記録にどうぞ。
+      </p>
+      <div class="btn-row" style="margin-top:0;">
+        <button class="btn ghost" data-print="5">5×5 の用紙</button>
+        <button class="btn ghost" data-print="6">6×6 の用紙</button>
+        <button class="btn ghost" data-print="8">8×8 の用紙</button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn teal" id="howBtn">📖 しくみ・歴史</button>
+      <button class="btn ghost" id="soundBtnHome">🔊 おと オン</button>
+    </div>
+    <div class="foot">
+      騎士の巡歴 ― ナイトツアー<br>
+      不具合が出るかもしれません。実際にご使用の際に不具合がありましたらコメント欄からお知らせください。
+    </div>
+  </div>
+
+  <!-- ===== ゲーム ===== -->
+  <div id="scr-game" class="hidden">
+    <div class="top-row">
+      <button class="pill" id="backBtn">← 盤をえらぶ</button>
+      <span style="font-weight:800; font-size:16px;" id="gameTitle">5×5</span>
+      <button class="pill" id="soundBtn">🔊 おと オン</button>
+    </div>
+    <div class="card" style="padding:10px 14px;">
+      <div class="status">
+        <span class="badge" id="remainBadge">あと 25 マス</span>
+        <span class="dim" id="visitDim">訪れたマス： 0 / 25</span>
+        <span class="dim" id="hintDim">ヒント： 0 回</span>
+      </div>
+    </div>
+    <div id="boardWrap">
+      <div id="board"></div>
+      <svg id="pathSvg"></svg>
+    </div>
+    <div class="msg" id="msg">スタートのマスをタップしてください</div>
+    <div class="btn-row">
+      <button class="btn green" id="hintBtn">💡 ヒント</button>
+      <button class="btn teal" id="demoBtn">▶ お手本</button>
+      <button class="btn ghost" id="undoBtn">↩ 1手もどす</button>
+    </div>
+    <div class="btn-row">
+      <button class="btn ghost" id="printBtn">🖨 記録用紙</button>
+      <button class="btn ghost" id="retryBtn">↺ 最初から</button>
+    </div>
+  </div>
+</div>
+
+<!-- クリアモーダル -->
+<div class="modal-bg" id="clearModal">
+  <div class="modal">
+    <div class="big-emoji">🏆</div>
+    <h2>全マス制覇！</h2>
+    <div class="stat-line" id="clearStat"></div>
+    <p id="clearClosed" class="hidden" style="text-align:center; font-weight:800; color:var(--accent);">
+      ✨ しかも最後のマスから最初のマスへも跳べる「閉じた巡歴」になりました！
+    </p>
+    <p style="text-align:center;">ナイトの巡歴、完成です。お見事でした。</p>
+    <div class="btn-row">
+      <button class="btn primary" id="clearAgain">もう一度</button>
+      <button class="btn ghost" id="clearHome">盤をえらぶ</button>
+    </div>
+  </div>
+</div>
+
+<!-- しくみモーダル -->
+<div class="modal-bg" id="howModal">
+  <div class="modal">
+    <h2>📖 騎士の巡歴のしくみ・歴史</h2>
+    <p>
+      騎士の巡歴（ナイトツアー）は、チェスのナイトの動き――縦横どちらかへ2マス進み、直角に1マス曲がる「桂馬跳び」――だけを使って、
+      盤の全部のマスをちょうど1回ずつ訪れるパズルです。最後のマスから最初のマスへもナイトの動きで戻れるとき、「閉じた巡歴」と呼びます。
+    </p>
+    <p>
+      とても古くから知られたパズルで、9世紀ごろのアラビアやインドの記録にも現れます。18世紀には、あの数学者<b>オイラー</b>もこの問題を本気で研究し、
+      1759年に論文を書きました。対称性の美しい巡歴や、魔方陣のようになる巡歴まで考えたそうです。
+    </p>
+    <ul>
+      <li><b>5×5（25マス）</b>：開いた巡歴はありますが、閉じた巡歴はできません。白と黒のマスの数の関係で、スタートのマスによっては全部を回れないことも分かっています。</li>
+      <li><b>6×6（36マス）</b>：開いた巡歴はありますが、閉じた巡歴はないことが証明されています。</li>
+      <li><b>8×8（64マス）</b>：閉じた巡歴だけでも、およそ13兆通りもあることが数え上げられています。開いた巡歴はその何倍もの数です。</li>
+      <li><b>4×4</b>：小さいのに、巡歴は1つもありません。盤によって「ある・ない」が違うところが、このパズルの奥深さです。</li>
+    </ul>
+    <p>
+      行き詰まらないコツは、19世紀にワルンスドルフが考えたとされる方法です。<b>「次に行ける先が一番少ないマスへ進む」</b>。
+      行き場の少ないマスを先に片づけるのがコツで、このアプリの「ヒント」もまずこの考え方で選び、その手から本当に最後まで回れることを確かめてから提案しています。
+    </p>
+    <p>「お手本」では、コンピュータが見つけた完全な巡歴を最初から見ることができます。まず眺めて、跳び方のリズムをつかむのもおすすめです。</p>
+    <div class="btn-row"><button class="btn primary" id="howClose">閉じる</button></div>
+  </div>
+</div>
+
+<canvas id="confetti" width="900" height="1200"></canvas>
+
+<script>
+"use strict";
+const $ = id => document.getElementById(id);
+const KNIGHT_D = [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+const MOVES = {};   // MOVES[n][cell] = [next cells]
+function movesFor(n) {
+  if (MOVES[n]) return MOVES[n];
+  const mv = [];
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const list = [];
+    for (const [dx, dy] of KNIGHT_D) {
+      const nx = x + dx, ny = y + dy;
+      if (nx >= 0 && nx < n && ny >= 0 && ny < n) list.push(ny * n + nx);
+    }
+    mv.push(list);
+  }
+  MOVES[n] = mv; return mv;
+}
+
+/* ---------- 記録 ---------- */
+let rec = { 5: { clears: 0 }, 6: { clears: 0 }, 8: { clears: 0 } };
+try { const s = JSON.parse(localStorage.getItem('knight-tour-rec')); if (s) for (const k of [5,6,8]) if (s[k]) rec[k] = s[k]; } catch (e) {}
+function saveRec() { try { localStorage.setItem('knight-tour-rec', JSON.stringify(rec)); } catch (e) {} }
+
+/* ---------- 音（WebAudio合成） ---------- */
+let AC = null, soundOn = true;
+function ac() { if (!AC) { try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} } if (AC && AC.state === 'suspended') AC.resume(); return AC; }
+function knock() {  // 木駒を置く音：短いノイズ＋低めのサインの減衰
+  if (!soundOn) return; const c = ac(); if (!c) return; const t = c.currentTime;
+  const nb = c.createBuffer(1, c.sampleRate * 0.05, c.sampleRate); const d = nb.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / d.length);
+  const ns = c.createBufferSource(); ns.buffer = nb;
+  const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900; bp.Q.value = 1.2;
+  const ng = c.createGain(); ng.gain.setValueAtTime(0.5, t); ng.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+  ns.connect(bp); bp.connect(ng); ng.connect(c.destination); ns.start(t);
+  const o = c.createOscillator(); o.type = 'sine';
+  o.frequency.setValueAtTime(300, t); o.frequency.exponentialRampToValueAtTime(120, t + 0.09);
+  const og = c.createGain(); og.gain.setValueAtTime(0.35, t); og.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+  o.connect(og); og.connect(c.destination); o.start(t); o.stop(t + 0.11);
+}
+function blip(f) { if (!soundOn) return; const c = ac(); if (!c) return; const t = c.currentTime; const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = f || 660; const g = c.createGain(); g.gain.setValueAtTime(0.18, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.12); o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.13); }
+function fanfare() {
+  if (!soundOn) return; const c = ac(); if (!c) return; const t0 = c.currentTime;
+  [523, 659, 784, 1047].forEach((f, i) => {
+    const o = c.createOscillator(); o.type = 'triangle'; o.frequency.value = f;
+    const g = c.createGain(); const t = t0 + i * 0.13;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.3, t + 0.03); g.gain.exponentialRampToValueAtTime(0.001, t + 0.34);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.36);
+  });
+  [523, 659, 784].forEach(f => {
+    const o = c.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+    const g = c.createGain(); const t = t0 + 0.55;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t + 0.04); g.gain.exponentialRampToValueAtTime(0.001, t + 0.7);
+    o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 0.72);
+  });
+}
+function lowBuzz() { if (!soundOn) return; const c = ac(); if (!c) return; const t = c.currentTime; [196, 147].forEach((f, i) => { const o = c.createOscillator(); o.type = 'sawtooth'; o.frequency.value = f; const g = c.createGain(); g.gain.setValueAtTime(0.08, t + i * 0.16); g.gain.exponentialRampToValueAtTime(0.001, t + i * 0.16 + 0.15); o.connect(g); g.connect(c.destination); o.start(t + i * 0.16); o.stop(t + i * 0.16 + 0.16); }); }
+
+/* ---------- ソルバー（Warnsdorff順序の深さ優先探索） ---------- */
+function solveFrom(n, startPath, budget) {
+  const total = n * n, mv = movesFor(n);
+  const seen = new Uint8Array(total);
+  const path = startPath.slice();
+  for (const i of path) seen[i] = 1;
+  if (path.length === total) return path.slice();
+  if (!path.length) return null;
+  let nodes = 0;
+  function dfs(cur) {
+    if (path.length === total) return true;
+    if (++nodes > budget) return false;
+    const cands = [];
+    for (const nb of mv[cur]) if (!seen[nb]) {
+      let deg = 0; for (const nn of mv[nb]) if (!seen[nn]) deg++;
+      cands.push([deg, nb]);
+    }
+    cands.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    for (const [, nb] of cands) {
+      seen[nb] = 1; path.push(nb);
+      if (dfs(nb)) return true;
+      seen[nb] = 0; path.pop();
+      if (nodes > budget) return false;
+    }
+    return false;
+  }
+  return dfs(path[path.length - 1]) ? path.slice() : null;
+}
+
+/* ---------- ゲーム状態 ---------- */
+let N = 5;
+let path = [];            // 訪れた順
+let visitedSet = new Set();
+let hintCell = null;
+let hintsUsed = 0;
+let guideSol = null;      // 現在の path を接頭辞とする完全解（あれば）
+let demoTimer = null;
+let demoDelay = 420;
+let cleared = false;
+
+function show(id) { ['scr-home', 'scr-game'].forEach(s => $(s).classList.toggle('hidden', s !== id)); }
+function stopDemo() { if (demoTimer) { clearInterval(demoTimer); demoTimer = null; $('demoBtn').textContent = '▶ お手本'; } }
+function setMsg(text, warn) { const m = $('msg'); m.textContent = text; m.classList.toggle('warn', !!warn); }
+
+function startGame(n) {
+  stopDemo();
+  N = n; path = []; visitedSet = new Set(); hintCell = null; hintsUsed = 0; guideSol = null; cleared = false;
+  $('gameTitle').textContent = n + '×' + n + '（' + (n * n) + 'マス）';
+  buildBoard();
+  show('scr-game');
+  setMsg('スタートのマスをタップしてください');
+  render();
+  window.scrollTo(0, 0);
+}
+function buildBoard() {
+  const b = $('board');
+  b.style.gridTemplateColumns = `repeat(${N}, 1fr)`;
+  b.style.gridTemplateRows = `repeat(${N}, 1fr)`;
+  b.innerHTML = '';
+  const fs = N === 5 ? 15 : N === 6 ? 13.5 : 11.5;
+  const kfs = N === 5 ? 30 : N === 6 ? 26 : 21;
+  for (let i = 0; i < N * N; i++) {
+    const x = i % N, y = (i / N) | 0;
+    const cell = document.createElement('div');
+    cell.className = 'cell ' + (((x + y) % 2 === 0) ? 'L' : 'D');
+    cell.dataset.i = i;
+    cell.innerHTML = `<span class="num" style="font-size:${fs}px"></span><span class="dot"></span><span class="knight" style="font-size:${kfs}px"></span>`;
+    cell.addEventListener('pointerdown', e => { e.preventDefault(); onTapCell(i); });
+    b.appendChild(cell);
+  }
+  $('pathSvg').setAttribute('viewBox', `0 0 ${N} ${N}`);
+}
+function legalNext() {
+  if (!path.length) return [];
+  const mv = movesFor(N), cur = path[path.length - 1];
+  return mv[cur].filter(i => !visitedSet.has(i));
+}
+function strandedCells() {
+  // すべての隣接マスが訪問済みで、現在地からも入れないマス＝もう二度と入れない
+  const mv = movesFor(N), cur = path[path.length - 1];
+  const out = [];
+  for (let i = 0; i < N * N; i++) {
+    if (visitedSet.has(i)) continue;
+    if (mv[i].every(nb => visitedSet.has(nb)) && !mv[i].includes(cur)) out.push(i);
+  }
+  return out;
+}
+function render() {
+  const cells = $('board').children;
+  const legal = new Set(path.length ? legalNext() : []);
+  const stranded = path.length && path.length < N * N ? new Set(strandedCells()) : new Set();
+  const order = new Map(); path.forEach((c, idx) => order.set(c, idx + 1));
+  const cur = path[path.length - 1];
+  for (let i = 0; i < N * N; i++) {
+    const cell = cells[i];
+    cell.classList.toggle('visited', visitedSet.has(i));
+    cell.classList.toggle('legal', legal.has(i));
+    cell.classList.toggle('current', i === cur);
+    cell.classList.toggle('hintcell', i === hintCell);
+    cell.classList.toggle('stranded', stranded.has(i));
+    cell.querySelector('.num').textContent = order.has(i) ? order.get(i) : '';
+    cell.querySelector('.knight').textContent = i === cur ? '♞' : '';
+  }
+  // 経路の線
+  const pts = path.map(i => `${(i % N) + 0.5},${((i / N) | 0) + 0.5}`).join(' ');
+  $('pathSvg').innerHTML = path.length > 1
+    ? `<polyline points="${pts}" fill="none" stroke="rgba(146,64,14,.65)" stroke-width="${N === 8 ? 0.09 : 0.13}" stroke-linejoin="round" stroke-linecap="round"/>
+       ${path.map(i => `<circle cx="${(i % N) + 0.5}" cy="${((i / N) | 0) + 0.5}" r="${N === 8 ? 0.07 : 0.1}" fill="rgba(146,64,14,.65)"/>`).join('')}`
+    : '';
+  $('remainBadge').textContent = 'あと ' + (N * N - path.length) + ' マス';
+  $('visitDim').textContent = `訪れたマス： ${path.length} / ${N * N}`;
+  $('hintDim').textContent = `ヒント： ${hintsUsed} 回`;
+  $('undoBtn').disabled = !path.length || !!demoTimer;
+  $('hintBtn').disabled = !path.length || cleared || !!demoTimer;
+}
+
+function afterMove() {
+  render();
+  if (path.length === N * N) { onClear(); return; }
+  const legal = legalNext();
+  if (!legal.length) {
+    setMsg('行き詰まってしまいました…。あと ' + (N * N - path.length) + ' マス残っています。「1手もどす」でやり直せます。', true);
+    lowBuzz();
+    return;
+  }
+  const stranded = strandedCells();
+  if (stranded.length) {
+    setMsg('あっ、もう入れないマス（✕）ができてしまいました。このままでは全部は回れません。', true);
+    return;
+  }
+  setMsg('つぎは緑の丸のマスへ進めます（残り ' + (N * N - path.length) + ' マス）');
+}
+function doMove(i) {
+  path.push(i); visitedSet.add(i); hintCell = null;
+  if (guideSol && guideSol[path.length - 1] !== i) guideSol = null;
+  knock();
+  afterMove();
+}
+function onTapCell(i) {
+  if (demoTimer || cleared) return;
+  if (!path.length) {
+    // スタート
+    path = [i]; visitedSet = new Set([i]); hintCell = null; blip(520);
+    // 奇数盤の色パリティ：少数派の色からは完全巡歴が存在しない（5×5）
+    if (N % 2 === 1 && ((i % N) + ((i / N) | 0)) % 2 === 1) {
+      render();
+      setMsg('このマスからは、全部のマスを回れないことが分かっています（白と黒の数の関係です）。別のマスから始めるのがおすすめです。', true);
+      return;
+    }
+    render();
+    setMsg('スタート！ 緑の丸のマスへ進んでください');
+    return;
+  }
+  if (legalNext().includes(i)) { doMove(i); return; }
+  if (visitedSet.has(i)) { setMsg('そのマスはもう訪れました'); return; }
+  setMsg('ナイトの動き（桂馬跳び）で進めるマスをタップしてください');
+}
+function onClear() {
+  cleared = true;
+  rec[N].clears++; saveRec(); buildHomeCards();
+  const closedTour = movesFor(N)[path[path.length - 1]].includes(path[0]);
+  $('clearStat').textContent = `${N}×${N}（${N * N}マス）・ヒント ${hintsUsed} 回`;
+  $('clearClosed').classList.toggle('hidden', !closedTour);
+  render();
+  fanfare(); confetti();
+  setTimeout(() => $('clearModal').classList.add('open'), 650);
+}
+
+/* ---------- ヒント（検証つき） ---------- */
+$('hintBtn').addEventListener('click', () => {
+  if (!path.length || cleared) return;
+  // 既知のガイド解に沿っている間はそれを使う
+  if (guideSol && path.every((c, idx) => guideSol[idx] === c) && path.length < guideSol.length) {
+    hintCell = guideSol[path.length];
+  } else {
+    const sol = solveFrom(N, path, N === 8 ? 400000 : 300000);
+    if (sol) { guideSol = sol; hintCell = sol[path.length]; }
+    else hintCell = null;
+  }
+  if (hintCell !== null && hintCell !== undefined) {
+    hintsUsed++;
+    setMsg('💡 ヒント：光っているマスがおすすめです（その先まで回れることを確かめました）');
+    blip(880);
+  } else {
+    setMsg('この先は行き詰まりそうです…。「1手もどす」で別の手を試してみてください。', true);
+    lowBuzz();
+  }
+  render();
+});
+
+/* ---------- お手本 ---------- */
+$('demoBtn').addEventListener('click', () => {
+  if (demoTimer) { stopDemo(); render(); return; }
+  const start = path.length ? path[0] : 0;
+  const sol = solveFrom(N, [start], 5000000) || solveFrom(N, [0], 5000000) ||
+    (() => { for (let s = 1; s < N * N; s++) { const r = solveFrom(N, [s], 800000); if (r) return r; } return null; })();
+  if (!sol) { setMsg('お手本の経路が見つかりませんでした', true); return; }
+  guideSol = sol;
+  path = [sol[0]]; visitedSet = new Set([sol[0]]); hintCell = null; cleared = false;
+  let step = 1;
+  $('demoBtn').textContent = '⏸ お手本を止める';
+  setMsg('お手本：コンピュータの巡歴です');
+  render();
+  demoTimer = setInterval(() => {
+    if (step >= sol.length) { stopDemo(); afterMove(); return; }
+    path.push(sol[step]); visitedSet.add(sol[step]); step++;
+    knock(); render();
+    if (step >= sol.length) { stopDemo(); afterMove(); }
+  }, demoDelay);
+});
+
+/* ---------- ボタン類 ---------- */
+$('undoBtn').addEventListener('click', () => {
+  if (demoTimer || !path.length) return;
+  const removed = path.pop(); visitedSet.delete(removed); hintCell = null; cleared = false;
+  if (guideSol && !path.every((c, idx) => guideSol[idx] === c)) guideSol = null;
+  blip(440);
+  if (!path.length) setMsg('スタートのマスをタップしてください');
+  else if (path.length === N * N - 1) setMsg('あと1マスです！');
+  else {
+    const legal = legalNext();
+    setMsg(legal.length ? '1手もどしました' : '行き詰まってしまいました…。あと ' + (N * N - path.length) + ' マス残っています。');
+  }
+  render();
+});
+$('retryBtn').addEventListener('click', () => { stopDemo(); startGame(N); });
+$('backBtn').addEventListener('click', () => { stopDemo(); show('scr-home'); window.scrollTo(0, 0); });
+$('printBtn').addEventListener('click', () => printSheet(N));
+$('clearAgain').addEventListener('click', () => { $('clearModal').classList.remove('open'); startGame(N); });
+$('clearHome').addEventListener('click', () => { $('clearModal').classList.remove('open'); show('scr-home'); window.scrollTo(0, 0); });
+$('howBtn').addEventListener('click', () => $('howModal').classList.add('open'));
+$('howClose').addEventListener('click', () => $('howModal').classList.remove('open'));
+function setSound(on) {
+  soundOn = on;
+  const label = on ? '🔊 おと オン' : '🔇 おと オフ';
+  $('soundBtn').textContent = label; $('soundBtnHome').textContent = label;
+  if (on) blip(660);
+}
+$('soundBtn').addEventListener('click', () => setSound(!soundOn));
+$('soundBtnHome').addEventListener('click', () => setSound(!soundOn));
+
+/* ---------- ホームの盤カード ---------- */
+const BOARD_INFO = {
+  5: '25マス。まずはここから。閉じた巡歴はできない盤です。',
+  6: '36マス。少し歯ごたえがあります。',
+  8: '64マス。本物のチェス盤。閉じた巡歴もねらえます。'
+};
+function thumbHTML(n) {
+  let s = `<span class="board-thumb" style="grid-template-columns:repeat(${n},1fr);grid-template-rows:repeat(${n},1fr);">`;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) s += `<i style="background:${(x + y) % 2 ? '#9a7443' : '#f2e3ba'}"></i>`;
+  return s + '</span>';
+}
+function buildHomeCards() {
+  $('boardCards').innerHTML = [5, 6, 8].map(n => `
+    <button class="board-card" data-n="${n}">
+      ${thumbHTML(n)}
+      <span><span class="board-name">${n}×${n}</span><span class="board-desc" style="display:block;">${BOARD_INFO[n]}</span></span>
+      <span class="board-rec">${rec[n].clears ? '🏆 クリア ' + rec[n].clears + ' 回' : ''}</span>
+    </button>`).join('');
+  document.querySelectorAll('.board-card').forEach(el => el.addEventListener('click', () => { blip(520); startGame(+el.dataset.n); }));
+}
+document.querySelectorAll('[data-print]').forEach(el => el.addEventListener('click', () => printSheet(+el.dataset.print)));
+buildHomeCards();
+
+/* ---------- タイトルのミニ盤アニメーション ---------- */
+(function miniAnim() {
+  const mb = $('miniBoard');
+  const cells = [];
+  for (let y = 0; y < 5; y++) for (let x = 0; x < 5; x++) {
+    const d = document.createElement('div');
+    d.className = 'mini-cell';
+    d.style.background = (x + y) % 2 ? '#9a7443' : '#f2e3ba';
+    mb.appendChild(d); cells.push(d);
+  }
+  const tour = solveFrom(5, [0], 300000);
+  if (!tour) return;
+  const knight = $('miniKnight');
+  let step = 0, pause = 0;
+  function place(i, animate) {
+    const cell = tour[i], x = cell % 5, y = (cell / 5) | 0;
+    knight.style.left = ((x + 0.5) * 20) + '%';
+    knight.style.top = ((y + 0.5) * 20) + '%';
+    if (animate) { knight.classList.remove('hop'); void knight.offsetWidth; knight.classList.add('hop'); }
+    for (let k = 0; k < tour.length; k++) {
+      cells[tour[k]].textContent = k <= i ? (k + 1) : '';
+      cells[tour[k]].classList.toggle('seen', k <= i);
+      cells[tour[k]].style.background = k <= i ? ((tour[k] % 5 + ((tour[k] / 5) | 0)) % 2 ? '#b98d54' : '#f7ecc9') : ((tour[k] % 5 + ((tour[k] / 5) | 0)) % 2 ? '#9a7443' : '#f2e3ba');
+    }
+  }
+  place(0, false);
+  setInterval(() => {
+    if (!$('scr-home').classList.contains('hidden') === false) return; // ホーム表示中のみ
+    if (pause > 0) { pause--; return; }
+    step++;
+    if (step >= tour.length) { step = 0; pause = 3; }
+    place(step, true);
+  }, 620);
+})();
+
+/* ---------- 紙吹雪 ---------- */
+function confetti() {
+  const cv = $('confetti'), ctx = cv.getContext('2d');
+  cv.width = innerWidth; cv.height = innerHeight; cv.style.display = 'block';
+  const cols = ['#f59e0b', '#0f766e', '#dc2626', '#2563eb', '#f9d976', '#22c55e'];
+  const ps = Array.from({ length: 140 }, () => ({ x: Math.random() * cv.width, y: -20 - Math.random() * cv.height * 0.4, w: 6 + Math.random() * 6, h: 8 + Math.random() * 8, vy: 2 + Math.random() * 3.4, vx: -1.2 + Math.random() * 2.4, r: Math.random() * Math.PI, vr: -0.12 + Math.random() * 0.24, c: cols[(Math.random() * cols.length) | 0] }));
+  const t0 = performance.now();
+  (function frame(t) {
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    for (const p of ps) { p.y += p.vy; p.x += p.vx + Math.sin((t + p.y) / 220) * 0.7; p.r += p.vr; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore(); }
+    if (t - t0 < 3400) requestAnimationFrame(frame); else { ctx.clearRect(0, 0, cv.width, cv.height); cv.style.display = 'none'; }
+  })(t0);
+}
+
+/* ---------- 印刷用 記録用紙（A4・300dpi相当ラスター） ---------- */
+function makePrintCanvas(n) {
+  const W = 2480, H = 3508, cv = document.createElement('canvas');
+  cv.width = W; cv.height = H;
+  const c = cv.getContext('2d');
+  c.fillStyle = '#ffffff'; c.fillRect(0, 0, W, H);
+  c.fillStyle = '#3d2c17'; c.textAlign = 'center';
+  c.font = 'bold 92px sans-serif';
+  c.fillText('騎士の巡歴 ― ナイトツアー', W / 2, 190);
+  c.font = '54px sans-serif'; c.fillStyle = '#8a7350';
+  c.fillText('き ろ く よ う し （' + n + '×' + n + '）', W / 2, 280);
+  // 名前・日付欄
+  c.fillStyle = '#3d2c17'; c.font = '52px sans-serif'; c.textAlign = 'left';
+  c.fillText('なまえ：', 200, 430);
+  c.fillText('ひづけ：', 1300, 430);
+  c.strokeStyle = '#3d2c17'; c.lineWidth = 3;
+  c.beginPath(); c.moveTo(480, 445); c.lineTo(1200, 445); c.stroke();
+  c.beginPath(); c.moveTo(1580, 445); c.lineTo(2280, 445); c.stroke();
+  c.font = '46px sans-serif'; c.fillStyle = '#8a7350';
+  c.fillText('スタートのマスに ♞ を書き、訪れた順に 1・2・3… と番号を書きましょう。', 200, 545);
+  // 盤面グリッド
+  const size = Math.min(2080, Math.floor(2080 / n) * n);
+  const cell = size / n, ox = (W - size) / 2, oy = 640;
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    c.fillStyle = (x + y) % 2 ? '#cbb27f' : '#ffffff';
+    c.fillRect(ox + x * cell, oy + y * cell, cell, cell);
+  }
+  c.strokeStyle = '#3d2c17'; c.lineWidth = 4;
+  for (let i = 0; i <= n; i++) {
+    c.beginPath(); c.moveTo(ox + i * cell, oy); c.lineTo(ox + i * cell, oy + size); c.stroke();
+    c.beginPath(); c.moveTo(ox, oy + i * cell); c.lineTo(ox + size, oy + i * cell); c.stroke();
+  }
+  c.lineWidth = 10; c.strokeRect(ox, oy, size, size);
+  // 各マスの隅に薄く通し番号（書き込む場所の目安）
+  c.fillStyle = 'rgba(61,44,23,.38)'; c.font = `bold ${Math.round(cell * 0.16)}px sans-serif`; c.textAlign = 'left';
+  for (let i = 0; i < n * n; i++) {
+    const x = i % n, y = (i / n) | 0;
+    c.fillText(String(i + 1), ox + x * cell + cell * 0.06, oy + y * cell + cell * 0.2);
+  }
+  // 5cm確認線
+  const lineY = oy + size + 150, len5 = Math.round(5 / 2.54 * 300); // 300dpiで5cm
+  c.strokeStyle = '#dc2626'; c.lineWidth = 8;
+  c.beginPath(); c.moveTo(200, lineY); c.lineTo(200 + len5, lineY); c.stroke();
+  c.beginPath(); c.moveTo(200, lineY - 26); c.lineTo(200, lineY + 26); c.stroke();
+  c.beginPath(); c.moveTo(200 + len5, lineY - 26); c.lineTo(200 + len5, lineY + 26); c.stroke();
+  c.fillStyle = '#dc2626'; c.font = 'bold 48px sans-serif'; c.textAlign = 'left';
+  c.fillText('印刷したら、この線が 5cm か たしかめてください', 200 + len5 + 50, lineY + 16);
+  // フッター
+  c.fillStyle = '#8a7350'; c.font = '44px sans-serif'; c.textAlign = 'center';
+  c.fillText('騎士の巡歴 ― ナイトツアー ／ 全部のマスをちょうど1回ずつ訪れよう', W / 2, H - 120);
+  return cv;
+}
+async function printSheet(n) {
+  const cv = makePrintCanvas(n);
+  try {
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    if (blob && navigator.canShare) {
+      const file = new File([blob], `knight-tour-sheet-${n}x${n}.png`, { type: 'image/png' });
+      if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file] }); return; }
+    }
+  } catch (e) { /* キャンセル等はそのまま */ if (e && e.name === 'AbortError') return; }
+  const url = cv.toDataURL('image/png');
+  const w = window.open('', '_blank');
+  if (w) {
+    w.document.write(`<!DOCTYPE html><html><head><title>騎士の巡歴 記録用紙 ${n}×${n}</title></head><body style="margin:0;"><img src="${url}" style="width:100%;" onload="setTimeout(()=>window.print(),300);"></body></html>`);
+    w.document.close();
+  }
+}
+</script>
+</body>
+</html>
